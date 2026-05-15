@@ -282,7 +282,28 @@ export class Visual implements IVisual {
             this.scrollWrap.innerHTML = `<div class="fsem-empty">Nenhum dado disponível. Adicione campos ao visual.</div>`;
             return;
         }
-        this.render(dv.table);
+
+        const table = dv.table;
+
+        // Encontra o índice da primeira coluna com role "info"
+        const firstInfoIndex = table.columns.findIndex(
+            c => c.roles && c.roles["info"]
+        );
+
+        // Cria uma cópia do table com as rows ordenadas
+        const sortedTable: powerbi.DataViewTable = {
+            columns: table.columns,
+            rows: firstInfoIndex >= 0
+                ? [...(table.rows ?? [])].sort((a, b) => {
+                    const valA = String(a[firstInfoIndex] ?? "").toLowerCase();
+                    const valB = String(b[firstInfoIndex] ?? "").toLowerCase();
+                    return valA.localeCompare(valB, "pt-BR");
+                })
+                : [...(table.rows ?? [])],
+            totals: table.totals
+        };
+
+        this.render(sortedTable);
     }
 
     private render(table: DataViewTable): void {
@@ -290,20 +311,20 @@ export class Visual implements IVisual {
         const rows = table.rows ?? [];
 
         // ── Classifica colunas por role ─────────────────────────────
-        const weekKeyCols:    DataViewMetadataColumn[] = [];
-        const weekValueCols:  DataViewMetadataColumn[] = [];
+        const weekKeyCols: DataViewMetadataColumn[] = [];
+        const weekValueCols: DataViewMetadataColumn[] = [];
         const complianceCols: DataViewMetadataColumn[] = [];
-        const infoCols:       DataViewMetadataColumn[] = [];
+        const infoCols: DataViewMetadataColumn[] = [];
 
         cols.forEach(c => {
-            if      (c.roles?.["weekKey"])    weekKeyCols.push(c);
-            else if (c.roles?.["weekValue"])  weekValueCols.push(c);
+            if (c.roles?.["weekKey"]) weekKeyCols.push(c);
+            else if (c.roles?.["weekValue"]) weekValueCols.push(c);
             else if (c.roles?.["compliance"]) complianceCols.push(c);
-            else                              infoCols.push(c);
+            else infoCols.push(c);
         });
 
         // ── Índices das colunas ──────────────────────────────────────
-        const weekKeyIdx   = weekKeyCols[0]?.index;    // coluna com rótulo da semana
+        const weekKeyIdx = weekKeyCols[0]?.index;    // coluna com rótulo da semana
         const weekValueIdx = weekValueCols[0]?.index;  // coluna com dias trabalhados
         const complianceIdx = complianceCols[0]?.index; // coluna com status (opcional)
 
@@ -361,7 +382,7 @@ export class Visual implements IVisual {
         const pivotRows = Array.from(pivotMap.values());
         const totalWeekCols = sortedSemanas.length;
         const totalInfoCols = infoCols.length;
-        const totalCols     = totalWeekCols + totalInfoCols;
+        const totalCols = totalWeekCols + totalInfoCols;
 
         // ── Extrai mês/ano do rótulo da primeira semana ──────────────
         let mesLabel = "";
@@ -372,10 +393,10 @@ export class Visual implements IVisual {
             if (matchMes) {
                 const mesStr = matchMes[1];
                 // Se for número, converte para nome
-                const mesesNome = ["","Janeiro","Fevereiro","Março","Abril","Maio","Junho",
-                                   "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
-                const mesesAbrev = ["jan","fev","mar","abr","mai","jun",
-                                    "jul","ago","set","out","nov","dez"];
+                const mesesNome = ["", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+                    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+                const mesesAbrev = ["jan", "fev", "mar", "abr", "mai", "jun",
+                    "jul", "ago", "set", "out", "nov", "dez"];
                 const numMes = parseInt(mesStr, 10);
                 if (!isNaN(numMes)) {
                     mesLabel = `${mesesNome[numMes] || mesStr} / ${new Date().getFullYear()}`;
@@ -487,11 +508,11 @@ export class Visual implements IVisual {
         lines.push(this.exportHeaders.map(escape).join(";"));
         this.exportRows.forEach(row => lines.push(row.map(escape).join(";")));
 
-        const bom  = "\uFEFF";
+        const bom = "\uFEFF";
         const blob = new Blob([bom + lines.join("\n")], { type: "text/csv;charset=utf-8;" });
-        const url  = URL.createObjectURL(blob);
-        const a    = document.createElement("a");
-        a.href     = url;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
         a.download = `Frequencia_Semanal_${Date.now()}.csv`;
         document.body.appendChild(a);
         a.click();
