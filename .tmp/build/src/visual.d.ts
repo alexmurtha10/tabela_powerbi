@@ -13,4 +13,5 @@ export declare class Visual implements IVisual {
     update(options: VisualUpdateOptions): void;
     private render;
     private exportCSV;
+    private exportLocal;
 }

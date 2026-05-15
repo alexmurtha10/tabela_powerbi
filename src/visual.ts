@@ -61,7 +61,6 @@ const VISUAL_CSS = `
     table-layout: auto;
 }
 
-/* ── Cabeçalho sticky ─────────────────────────────────────────────── */
 .fsem-table thead {
     position: sticky;
     top: 0;
@@ -125,7 +124,6 @@ const VISUAL_CSS = `
     font-size: 11px;
 }
 
-/* ── Corpo ────────────────────────────────────────────────────────── */
 .fsem-table tbody tr:nth-child(odd)  td { background: #ffffff; }
 .fsem-table tbody tr:nth-child(even) td { background: #f2f2f2; }
 .fsem-table tbody tr:hover           td { background: #d1dce5 !important; }
@@ -159,7 +157,6 @@ const VISUAL_CSS = `
     font-size: 12px;
 }
 
-/* ── Mensagem vazia ───────────────────────────────────────────────── */
 .fsem-empty {
     padding: 40px;
     text-align: center;
@@ -180,23 +177,13 @@ function injectStyle(id: string, css: string): void {
     el.textContent = css;
 }
 
-/**
- * Extrai número da semana e intervalo de datas a partir do campo "Data Filtro".
- * Formatos suportados:
- *   "16 - 20/Abr a 26/Abr"
- *   "16 | 20/04 - 26/04"
- *   "16 – 20/04 a 26/04"
- */
 function parseSemanaHeader(displayName: string): { num: string; range: string } {
-    // Separador " | "
     let parts = displayName.split(" | ");
     if (parts.length === 2) return { num: parts[0].trim(), range: parts[1].trim() };
 
-    // Separador " - " (primeira ocorrência)
     parts = displayName.split(" - ");
     if (parts.length >= 2) return { num: parts[0].trim(), range: parts.slice(1).join(" - ").trim() };
 
-    // Separador " – " (em dash)
     parts = displayName.split(" – ");
     if (parts.length >= 2) return { num: parts[0].trim(), range: parts.slice(1).join(" – ").trim() };
 
@@ -212,24 +199,17 @@ function escapeHtml(v: unknown): string {
         .replace(/"/g, "&quot;");
 }
 
-/**
- * Extrai o número inteiro de semana do rótulo, para ordenação.
- * Ex: "16 - 20/Abr a 26/Abr" → 16
- */
 function semanaOrdinal(label: string): number {
     const { num } = parseSemanaHeader(label);
     const n = parseInt(num, 10);
     return isNaN(n) ? 9999 : n;
 }
 
-// ─── Tipos internos ────────────────────────────────────────────────────────────
+// ─── Tipos internos ───────────────────────────────────────────────────────────
 
 interface PivotRow {
-    /** Valores das colunas de info, indexados pelo index da coluna */
     info: Map<number, unknown>;
-    /** Dias trabalhados por rótulo de semana */
     weekValues: Map<string, number | null>;
-    /** Status compliance por rótulo de semana */
     complianceValues: Map<string, string>;
 }
 
@@ -241,7 +221,6 @@ export class Visual implements IVisual {
     private toolbar: HTMLElement;
     private scrollWrap: HTMLElement;
 
-    // Dados para exportação
     private exportHeaders: string[] = [];
     private exportRows: string[][] = [];
 
@@ -262,11 +241,19 @@ export class Visual implements IVisual {
         title.textContent = "Frequência Semanal";
         this.toolbar.appendChild(title);
 
+        // Botão Exportar CSV (bloqueado por permissão de admin — mantido comentado)
         const exportBtn = document.createElement("button");
         exportBtn.className = "fsem-btn";
         exportBtn.textContent = "📥 Exportar CSV";
         exportBtn.addEventListener("click", () => this.exportCSV());
         this.toolbar.appendChild(exportBtn);
+
+        // Botão Copiar CSV (funciona sem permissão de admin)
+        const localBtn = document.createElement("button");
+        localBtn.className = "fsem-btn";
+        localBtn.textContent = "📋 Copiar CSV";
+        localBtn.addEventListener("click", () => this.exportLocal());
+        this.toolbar.appendChild(localBtn);
 
         this.root.appendChild(this.toolbar);
 
@@ -285,12 +272,10 @@ export class Visual implements IVisual {
 
         const table = dv.table;
 
-        // Encontra o índice da primeira coluna com role "info"
         const firstInfoIndex = table.columns.findIndex(
             c => c.roles && c.roles["info"]
         );
 
-        // Cria uma cópia do table com as rows ordenadas
         const sortedTable: powerbi.DataViewTable = {
             columns: table.columns,
             rows: firstInfoIndex >= 0
@@ -310,7 +295,7 @@ export class Visual implements IVisual {
         const cols = table.columns;
         const rows = table.rows ?? [];
 
-        // ── Classifica colunas por role ─────────────────────────────
+        // ── Classifica colunas por role ──────────────────────────────
         const weekKeyCols: DataViewMetadataColumn[] = [];
         const weekValueCols: DataViewMetadataColumn[] = [];
         const complianceCols: DataViewMetadataColumn[] = [];
@@ -323,12 +308,10 @@ export class Visual implements IVisual {
             else infoCols.push(c);
         });
 
-        // ── Índices das colunas ──────────────────────────────────────
-        const weekKeyIdx = weekKeyCols[0]?.index;    // coluna com rótulo da semana
-        const weekValueIdx = weekValueCols[0]?.index;  // coluna com dias trabalhados
-        const complianceIdx = complianceCols[0]?.index; // coluna com status (opcional)
+        const weekKeyIdx = weekKeyCols[0]?.index;
+        const weekValueIdx = weekValueCols[0]?.index;
+        const complianceIdx = complianceCols[0]?.index;
 
-        // Sem weekKey configurada, avisa o usuário
         if (weekKeyIdx === undefined || weekValueIdx === undefined) {
             this.scrollWrap.innerHTML = `<div class="fsem-empty">
                 Configure os campos:<br>
@@ -338,8 +321,7 @@ export class Visual implements IVisual {
             return;
         }
 
-        // ── Coleta semanas únicas e pivoteia ─────────────────────────
-        // Chave de agrupamento por colaborador: concatena valores das infoCols
+        // ── Pivoteia dados ───────────────────────────────────────────
         const pivotMap = new Map<string, PivotRow>();
         const semanaLabels = new Set<string>();
 
@@ -347,7 +329,6 @@ export class Visual implements IVisual {
             const semLabel = row[weekKeyIdx] != null ? String(row[weekKeyIdx]) : null;
             if (semLabel) semanaLabels.add(semLabel);
 
-            // Chave única do colaborador = valores de info concatenados
             const infoKey = infoCols.map(ic => String(row[ic.index!] ?? "")).join("||");
 
             if (!pivotMap.has(infoKey)) {
@@ -374,7 +355,6 @@ export class Visual implements IVisual {
             }
         });
 
-        // Ordena semanas pelo número extraído
         const sortedSemanas = Array.from(semanaLabels).sort(
             (a, b) => semanaOrdinal(a) - semanaOrdinal(b)
         );
@@ -384,15 +364,13 @@ export class Visual implements IVisual {
         const totalInfoCols = infoCols.length;
         const totalCols = totalWeekCols + totalInfoCols;
 
-        // ── Extrai mês/ano do rótulo da primeira semana ──────────────
+        // ── Extrai mês ───────────────────────────────────────────────
         let mesLabel = "";
         if (sortedSemanas.length > 0) {
             const header = parseSemanaHeader(sortedSemanas[0]);
-            // Tenta padrão "dd/MMM" (ex: 20/Abr) ou "dd/MM" (ex: 20/04)
             const matchMes = header.range.match(/\d+\/([A-Za-zÀ-ú]+|\d+)/);
             if (matchMes) {
                 const mesStr = matchMes[1];
-                // Se for número, converte para nome
                 const mesesNome = ["", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
                     "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
                 const mesesAbrev = ["jan", "fev", "mar", "abr", "mai", "jun",
@@ -409,16 +387,14 @@ export class Visual implements IVisual {
             }
         }
 
-        // ── Build HTML ────────────────────────────────────────────────
+        // ── Build HTML ───────────────────────────────────────────────
         const parts: string[] = [];
         parts.push(`<table class="fsem-table"><thead>`);
 
-        // Linha 1: mês
         if (mesLabel) {
             parts.push(`<tr><th class="fsem-th-mes" colspan="${totalCols}">${escapeHtml(mesLabel)}</th></tr>`);
         }
 
-        // Linha 2: grupos
         if (totalCols > 0) {
             parts.push(`<tr>`);
             if (totalWeekCols > 0)
@@ -428,7 +404,6 @@ export class Visual implements IVisual {
             parts.push(`</tr>`);
         }
 
-        // Linha 3: cabeçalhos individuais
         parts.push(`<tr>`);
         sortedSemanas.forEach(label => {
             const h = parseSemanaHeader(label);
@@ -444,7 +419,6 @@ export class Visual implements IVisual {
         });
         parts.push(`</tr></thead><tbody>`);
 
-        // ── Corpo ─────────────────────────────────────────────────────
         if (pivotRows.length === 0) {
             parts.push(`<tr><td colspan="${totalCols}" class="fsem-empty">Sem registros para o período selecionado.</td></tr>`);
         } else {
@@ -461,7 +435,6 @@ export class Visual implements IVisual {
                         if (status.includes("não compliance") || status.includes("nao compliance")) {
                             cssClass = "nao-compliance";
                         } else if (status.includes("compliance") || status === "") {
-                            // verde se tem dados e não tem status negativo
                             cssClass = "compliance";
                         }
                     }
@@ -481,8 +454,7 @@ export class Visual implements IVisual {
         parts.push(`</tbody></table>`);
         this.scrollWrap.innerHTML = parts.join("");
 
-        // ── Prepara dados para CSV ────────────────────────────────────
-        // ── Prepara dados para CSV ────────────────────────────────────────
+        // ── Prepara dados para CSV ───────────────────────────────────
         const sortedPivotRows = [...pivotRows].sort((a, b) => {
             const firstInfoCol = infoCols[0];
             if (!firstInfoCol) return 0;
@@ -513,53 +485,86 @@ export class Visual implements IVisual {
         ]);
     }
 
-    // ── Exportação CSV ────────────────────────────────────────────────
+    // ── Exportar CSV (bloqueado por permissão de admin) ───────────────
     private exportCSV(): void {
-    if (this.exportHeaders.length === 0) return;
+         if (this.exportHeaders.length === 0) return;
 
-    const escape = (v: string) => `"${v.replace(/"/g, '""')}"`;
-    const lines: string[] = [];
+         const escape = (v: string) => `"${v.replace(/"/g, '""')}"`;
+         const lines: string[] = [];
 
-    lines.push(this.exportHeaders.map(escape).join(";"));
-    this.exportRows.forEach(row => lines.push(row.map(escape).join(";")));
+         lines.push(this.exportHeaders.map(escape).join(";"));
+         this.exportRows.forEach(row => lines.push(row.map(escape).join(";")));
 
-    const bom = "\uFEFF";
-    const content = bom + lines.join("\n");
+         const bom = "\uFEFF";
+         const content = bom + lines.join("\n");
 
-    // Tenta API oficial do Power BI primeiro
-    try {
-        const downloadService = (this.host as any).downloadService;
-        if (downloadService?.exportVisualsContent) {
-            downloadService.exportVisualsContent(
-                content,
-                `Frequencia_Semanal_${Date.now()}.csv`,
-                "text/csv",
-                "csv"
-            );
-            return;
-        }
-    } catch (e) { /* fallback abaixo */ }
+         try {
+             const downloadService = (this.host as any).downloadService;
+             if (downloadService?.exportVisualsContent) {
+                 downloadService.exportVisualsContent(
+                     content,
+                     `Frequencia_Semanal_${Date.now()}.csv`,
+                     "text/csv",
+                     "csv"
+                 );
+                 return;
+             }
+         } catch (e) { /* fallback abaixo */ }
 
-    // Fallback: abre em nova aba (funciona na maioria dos ambientes)
-    try {
-        const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `Frequencia_Semanal_${Date.now()}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    } catch (e) {
-        // Último recurso: data URI
-        const encoded = encodeURIComponent(content);
-        const a = document.createElement("a");
-        a.href = `data:text/csv;charset=utf-8,${encoded}`;
-        a.download = `Frequencia_Semanal_${Date.now()}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+         try {
+             const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
+             const url = URL.createObjectURL(blob);
+             const a = document.createElement("a");
+             a.href = url;
+             a.download = `Frequencia_Semanal_${Date.now()}.csv`;
+             document.body.appendChild(a);
+             a.click();
+             document.body.removeChild(a);
+             URL.revokeObjectURL(url);
+         } catch (e) {
+             const encoded = encodeURIComponent(content);
+             const a = document.createElement("a");
+             a.href = `data:text/csv;charset=utf-8,${encoded}`;
+             a.download = `Frequencia_Semanal_${Date.now()}.csv`;
+             document.body.appendChild(a);
+             a.click();
+             document.body.removeChild(a);
+         }
     }
-}
+
+    // ── Copiar CSV para clipboard (sem permissão de admin) ────────────
+    private exportLocal(): void {
+        if (this.exportHeaders.length === 0) return;
+
+        const escape = (v: string) => `"${v.replace(/"/g, '""')}"`;
+        const lines: string[] = [];
+
+        lines.push(this.exportHeaders.map(escape).join(";"));
+        this.exportRows.forEach(row => lines.push(row.map(escape).join(";")));
+
+        const content = lines.join("\n");
+
+        navigator.clipboard.writeText(content).then(() => {
+            const btn = this.toolbar.querySelector(".fsem-btn:last-child") as HTMLButtonElement;
+            if (btn) {
+                const original = btn.textContent;
+                btn.textContent = "✅ Copiado!";
+                btn.style.background = "#00B050";
+                setTimeout(() => {
+                    btn.textContent = original;
+                    btn.style.background = "";
+                }, 2000);
+            }
+        }).catch(() => {
+            const ta = document.createElement("textarea");
+            ta.value = content;
+            ta.style.position = "fixed";
+            ta.style.opacity = "0";
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            document.execCommand("copy");
+            document.body.removeChild(ta);
+        });
+    }
 }
