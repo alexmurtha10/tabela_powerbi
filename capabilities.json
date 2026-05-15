@@ -29,19 +29,39 @@
         "dataPoint": {
             "properties": {
                 "defaultColor": {
-                    "type": { "fill": { "solid": { "color": true } } }
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
                 },
                 "showAllDataPoints": {
-                    "type": { "bool": true }
+                    "type": {
+                        "bool": true
+                    }
                 },
                 "fill": {
-                    "type": { "fill": { "solid": { "color": true } } }
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
                 },
                 "fillRule": {
-                    "type": { "fill": {} }
+                    "type": {
+                        "fill": {}
+                    }
                 },
                 "fontSize": {
-                    "type": { "formatting": { "fontSize": true } }
+                    "type": {
+                        "formatting": {
+                            "fontSize": true
+                        }
+                    }
                 }
             }
         }
@@ -51,17 +71,40 @@
             "table": {
                 "rows": {
                     "select": [
-                        { "for": { "in": "weekKey" } },
-                        { "for": { "in": "weekValue" } },
-                        { "for": { "in": "compliance" } },
-                        { "for": { "in": "info" } }
+                        {
+                            "for": {
+                                "in": "weekKey"
+                            }
+                        },
+                        {
+                            "for": {
+                                "in": "weekValue"
+                            }
+                        },
+                        {
+                            "for": {
+                                "in": "compliance"
+                            }
+                        },
+                        {
+                            "for": {
+                                "in": "info"
+                            }
+                        }
                     ],
                     "dataReductionAlgorithm": {
-                        "window": { "count": 30000 }
+                        "window": {
+                            "count": 30000
+                        }
                     }
                 }
             }
         }
     ],
-    "privileges": []
+    "privileges": [
+        {
+            "name": "ExportContent",
+            "essential": true
+        }
+    ]
 }

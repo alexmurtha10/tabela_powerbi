@@ -482,14 +482,29 @@ export class Visual implements IVisual {
         this.scrollWrap.innerHTML = parts.join("");
 
         // ── Prepara dados para CSV ────────────────────────────────────
+        // ── Prepara dados para CSV ────────────────────────────────────────
+        const sortedPivotRows = [...pivotRows].sort((a, b) => {
+            const firstInfoCol = infoCols[0];
+            if (!firstInfoCol) return 0;
+            const valA = String(a.info.get(firstInfoCol.index!) ?? "").toLowerCase();
+            const valB = String(b.info.get(firstInfoCol.index!) ?? "").toLowerCase();
+            return valA.localeCompare(valB, "pt-BR");
+        });
+
         this.exportHeaders = [
-            ...sortedSemanas,
+            ...sortedSemanas.map(label => {
+                const h = parseSemanaHeader(label);
+                return h.range ? `${h.num} - ${h.range}` : h.num;
+            }),
             ...infoCols.map(c => c.displayName)
         ];
-        this.exportRows = pivotRows.map(pr => [
+
+        this.exportRows = sortedPivotRows.map(pr => [
             ...sortedSemanas.map(label => {
                 const val = pr.weekValues.get(label);
-                return val !== null && val !== undefined ? String(val) : "";
+                return (val !== null && val !== undefined && !isNaN(val as number) && (val as number) > 0)
+                    ? String(val)
+                    : "";
             }),
             ...infoCols.map(ic => {
                 const v = pr.info.get(ic.index!);
@@ -500,16 +515,34 @@ export class Visual implements IVisual {
 
     // ── Exportação CSV ────────────────────────────────────────────────
     private exportCSV(): void {
-        if (this.exportHeaders.length === 0) return;
+    if (this.exportHeaders.length === 0) return;
 
-        const escape = (v: string) => `"${v.replace(/"/g, '""')}"`;
-        const lines: string[] = [];
+    const escape = (v: string) => `"${v.replace(/"/g, '""')}"`;
+    const lines: string[] = [];
 
-        lines.push(this.exportHeaders.map(escape).join(";"));
-        this.exportRows.forEach(row => lines.push(row.map(escape).join(";")));
+    lines.push(this.exportHeaders.map(escape).join(";"));
+    this.exportRows.forEach(row => lines.push(row.map(escape).join(";")));
 
-        const bom = "\uFEFF";
-        const blob = new Blob([bom + lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const bom = "\uFEFF";
+    const content = bom + lines.join("\n");
+
+    // Tenta API oficial do Power BI primeiro
+    try {
+        const downloadService = (this.host as any).downloadService;
+        if (downloadService?.exportVisualsContent) {
+            downloadService.exportVisualsContent(
+                content,
+                `Frequencia_Semanal_${Date.now()}.csv`,
+                "text/csv",
+                "csv"
+            );
+            return;
+        }
+    } catch (e) { /* fallback abaixo */ }
+
+    // Fallback: abre em nova aba (funciona na maioria dos ambientes)
+    try {
+        const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
@@ -518,5 +551,15 @@ export class Visual implements IVisual {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+    } catch (e) {
+        // Último recurso: data URI
+        const encoded = encodeURIComponent(content);
+        const a = document.createElement("a");
+        a.href = `data:text/csv;charset=utf-8,${encoded}`;
+        a.download = `Frequencia_Semanal_${Date.now()}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
     }
+}
 }
