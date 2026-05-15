@@ -1,0 +1,159 @@
+
+.fsem-wrap {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    font-family: Calibri, 'Segoe UI', sans-serif;
+    font-size: 12px;
+    background: #fff;
+}
+
+.fsem-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: #2E4153;
+    flex-shrink: 0;
+}
+
+.fsem-title {
+    color: #fff;
+    font-weight: bold;
+    font-size: 13px;
+    flex: 1;
+}
+
+.fsem-btn {
+    background: #3F5B70;
+    color: #fff;
+    border: none;
+    padding: 5px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    font-family: Calibri, sans-serif;
+    white-space: nowrap;
+
+    &:hover { background: #4e6e85; }
+}
+
+.fsem-scroll {
+    flex: 1;
+    overflow: auto;
+    min-height: 0;
+}
+
+.fsem-table {
+    border-collapse: collapse;
+    width: 100%;
+    table-layout: auto;
+
+    thead {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+
+    tbody {
+        tr:nth-child(odd)  td { background: #ffffff; }
+        tr:nth-child(even) td { background: #f2f2f2; }
+        tr:hover           td { background: #d1dce5 !important; }
+    }
+}
+
+.fsem-th-mes {
+    background: #2E4153;
+    color: #fff;
+    font-weight: bold;
+    text-align: center;
+    padding: 7px 10px;
+    font-size: 13px;
+    border: 1px solid #2E4153;
+}
+
+.fsem-th-group {
+    background: #374E65;
+    color: #fff;
+    font-weight: bold;
+    text-align: center;
+    padding: 5px 8px;
+    border: 1px solid #4e6e85;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.fsem-th-semana {
+    background: #3F5B70;
+    color: #fff;
+    text-align: center;
+    padding: 5px 6px;
+    border: 1px solid #4e6e85;
+    min-width: 72px;
+    white-space: nowrap;
+
+    .sem-num {
+        display: block;
+        font-weight: bold;
+        font-size: 13px;
+        line-height: 1.2;
+    }
+
+    .sem-range {
+        display: block;
+        font-weight: normal;
+        font-size: 9px;
+        opacity: 0.85;
+        margin-top: 1px;
+    }
+}
+
+.fsem-th-info {
+    background: #3F5B70;
+    color: #fff;
+    font-weight: bold;
+    text-align: center;
+    padding: 5px 8px;
+    border: 1px solid #4e6e85;
+    min-width: 90px;
+    white-space: nowrap;
+    font-size: 11px;
+}
+
+.fsem-td-semana {
+    border: 1px solid #ccc;
+    text-align: center;
+    padding: 5px 4px;
+    font-weight: bold;
+    font-size: 13px;
+    color: #2E4153;
+    white-space: nowrap;
+
+    &.compliance {
+        background: #00B050 !important;
+        color: #fff !important;
+    }
+
+    &.nao-compliance {
+        background: #FF0000 !important;
+        color: #fff !important;
+    }
+}
+
+.fsem-td-info {
+    border: 1px solid #ccc;
+    padding: 5px 8px;
+    text-align: left;
+    white-space: nowrap;
+    color: #333;
+    font-size: 12px;
+}
+
+.fsem-empty {
+    padding: 40px;
+    text-align: center;
+    color: #888;
+    font-size: 13px;
+}

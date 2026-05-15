@@ -1,0 +1,67 @@
+{
+    "dataRoles": [
+        {
+            "displayName": "Chave da Semana (Data Filtro)",
+            "name": "weekKey",
+            "kind": "GroupingOrMeasure",
+            "description": "Campo com o rótulo da semana, ex: '16 - 20/Abr a 26/Abr'. Cada valor único vira uma coluna de semana."
+        },
+        {
+            "displayName": "Valor da Semana (Dias Trabalhados)",
+            "name": "weekValue",
+            "kind": "Measure",
+            "description": "Medida com os dias trabalhados. Será exibida na coluna correspondente à chave da semana."
+        },
+        {
+            "displayName": "Status Compliance (opcional)",
+            "name": "compliance",
+            "kind": "Measure",
+            "description": "Medida de texto com status de compliance. Deve estar na mesma ordem das semanas para colorir as células."
+        },
+        {
+            "displayName": "Dados do Colaborador",
+            "name": "info",
+            "kind": "GroupingOrMeasure",
+            "description": "Colunas de informação: Colaborador, Líder, UA, Departamento, etc. Adicione quantas quiser."
+        }
+    ],
+    "objects": {
+        "dataPoint": {
+            "properties": {
+                "defaultColor": {
+                    "type": { "fill": { "solid": { "color": true } } }
+                },
+                "showAllDataPoints": {
+                    "type": { "bool": true }
+                },
+                "fill": {
+                    "type": { "fill": { "solid": { "color": true } } }
+                },
+                "fillRule": {
+                    "type": { "fill": {} }
+                },
+                "fontSize": {
+                    "type": { "formatting": { "fontSize": true } }
+                }
+            }
+        }
+    },
+    "dataViewMappings": [
+        {
+            "table": {
+                "rows": {
+                    "select": [
+                        { "for": { "in": "weekKey" } },
+                        { "for": { "in": "weekValue" } },
+                        { "for": { "in": "compliance" } },
+                        { "for": { "in": "info" } }
+                    ],
+                    "dataReductionAlgorithm": {
+                        "window": { "count": 30000 }
+                    }
+                }
+            }
+        }
+    ],
+    "privileges": []
+}

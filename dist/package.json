@@ -1,0 +1,17 @@
+{
+		"version": "1.0.0.0",
+		"author": {"name":"Alex Murtha","email":"a.ferreira@ocyan-sa.com"},
+		"resources": [
+			{
+				"resourceId": "rId0",
+				"sourceType": 5,
+				"file": "resources/TabelaGF.pbiviz.json"
+			}
+		],
+		"visual": {"name":"Tabela de Gestão de Frequência","displayName":"Tabela de Gestão de Frequência","guid":"TabelaGF","visualClassName":"Visual","version":"1.0.0.0","description":"Tabela customizada para controle de frequência","supportUrl":"https://github.com/alexmurtha10/calendario_powerbi","gitHubUrl":"https://github.com/alexmurtha10/calendario_powerbi"},
+		"metadata": {
+			"pbivizjson": {
+				"resourceId": "rId0"
+			}
+		}
+	}
