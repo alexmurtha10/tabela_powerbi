@@ -16,52 +16,38 @@
             "displayName": "Status Compliance (opcional)",
             "name": "compliance",
             "kind": "Measure",
-            "description": "Medida de texto com status de compliance. Deve estar na mesma ordem das semanas para colorir as células."
+            "description": "Medida de texto com status de compliance."
         },
         {
             "displayName": "Dados do Colaborador",
             "name": "info",
             "kind": "GroupingOrMeasure",
-            "description": "Colunas de informação: Colaborador, Líder, UA, Departamento, etc. Adicione quantas quiser."
+            "description": "Colunas de informação: Colaborador, Líder, UA, Departamento, etc."
+        },
+        {
+            "displayName": "Detalhe do Popup (Tooltip)",
+            "name": "detail",
+            "kind": "GroupingOrMeasure",
+            "description": "Colunas de detalhe exibidas no popup ao clicar na célula: Data, Dia, Site, Hora Início, Hora Fim, Tempo Permanência, etc."
         }
     ],
     "objects": {
         "dataPoint": {
             "properties": {
                 "defaultColor": {
-                    "type": {
-                        "fill": {
-                            "solid": {
-                                "color": true
-                            }
-                        }
-                    }
+                    "type": { "fill": { "solid": { "color": true } } }
                 },
                 "showAllDataPoints": {
-                    "type": {
-                        "bool": true
-                    }
+                    "type": { "bool": true }
                 },
                 "fill": {
-                    "type": {
-                        "fill": {
-                            "solid": {
-                                "color": true
-                            }
-                        }
-                    }
+                    "type": { "fill": { "solid": { "color": true } } }
                 },
                 "fillRule": {
-                    "type": {
-                        "fill": {}
-                    }
+                    "type": { "fill": {} }
                 },
                 "fontSize": {
-                    "type": {
-                        "formatting": {
-                            "fontSize": true
-                        }
-                    }
+                    "type": { "formatting": { "fontSize": true } }
                 }
             }
         }
@@ -71,31 +57,14 @@
             "table": {
                 "rows": {
                     "select": [
-                        {
-                            "for": {
-                                "in": "weekKey"
-                            }
-                        },
-                        {
-                            "for": {
-                                "in": "weekValue"
-                            }
-                        },
-                        {
-                            "for": {
-                                "in": "compliance"
-                            }
-                        },
-                        {
-                            "for": {
-                                "in": "info"
-                            }
-                        }
+                        { "for": { "in": "weekKey" } },
+                        { "for": { "in": "weekValue" } },
+                        { "for": { "in": "compliance" } },
+                        { "for": { "in": "info" } },
+                        { "for": { "in": "detail" } }
                     ],
                     "dataReductionAlgorithm": {
-                        "window": {
-                            "count": 30000
-                        }
+                        "window": { "count": 30000 }
                     }
                 }
             }

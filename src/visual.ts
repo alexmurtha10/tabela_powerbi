@@ -138,6 +138,14 @@ const VISUAL_CSS = `
     white-space: nowrap;
 }
 
+.fsem-td-semana.clickable {
+    cursor: pointer;
+}
+
+.fsem-td-semana.clickable:hover {
+    filter: brightness(0.88);
+}
+
 .fsem-td-semana.compliance {
     background: #00B050 !important;
     color: #fff !important;
@@ -163,6 +171,91 @@ const VISUAL_CSS = `
     color: #888;
     font-size: 13px;
 }
+
+/* ── Modal ────────────────────────────────────────────────────────── */
+.fsem-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.45);
+    z-index: 99998;
+}
+
+.fsem-modal {
+    display: none;
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 720px;
+    max-width: 95vw;
+    max-height: 80vh;
+    overflow-y: auto;
+    background: #2E4153;
+    border: 1px solid #3F5B70;
+    border-radius: 10px;
+    padding: 14px;
+    z-index: 99999;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    font-family: Calibri, sans-serif;
+    font-size: 12px;
+    color: #fff;
+}
+
+.fsem-modal-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.fsem-modal-title {
+    flex: 1;
+    font-weight: bold;
+    font-size: 13px;
+    color: #fff;
+}
+
+.fsem-modal-close {
+    background: #3F5B70;
+    border: none;
+    color: #fff;
+    border-radius: 50%;
+    width: 26px;
+    height: 26px;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.fsem-modal-close:hover { background: #4e6e85; }
+
+.fsem-modal-table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+.fsem-modal-table th {
+    background: #3F5B70;
+    color: #fff;
+    padding: 5px 8px;
+    border: 1px solid #4e6e85;
+    font-weight: bold;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+}
+
+.fsem-modal-table td {
+    padding: 4px 7px;
+    border: 1px solid #3F5B70;
+    background: #2E4153;
+    color: #fff;
+    white-space: nowrap;
+}
+
+.fsem-modal-table tr:nth-child(even) td { background: #364d60; }
+.fsem-modal-table tr:hover td { background: #3F5B70; }
 `;
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -207,10 +300,15 @@ function semanaOrdinal(label: string): number {
 
 // ─── Tipos internos ───────────────────────────────────────────────────────────
 
+interface DetailRow {
+    values: Map<number, unknown>;
+}
+
 interface PivotRow {
     info: Map<number, unknown>;
     weekValues: Map<string, number | null>;
     complianceValues: Map<string, string>;
+    details: Map<string, DetailRow[]>; // semanaLabel → linhas de detalhe
 }
 
 // ─── Visual principal ─────────────────────────────────────────────────────────
@@ -220,6 +318,10 @@ export class Visual implements IVisual {
     private root: HTMLElement;
     private toolbar: HTMLElement;
     private scrollWrap: HTMLElement;
+    private overlay: HTMLElement;
+    private modal: HTMLElement;
+    private modalTitle: HTMLElement;
+    private modalBody: HTMLElement;
 
     private exportHeaders: string[] = [];
     private exportRows: string[][] = [];
@@ -248,7 +350,7 @@ export class Visual implements IVisual {
         exportBtn.addEventListener("click", () => this.exportCSV());
         this.toolbar.appendChild(exportBtn);
 
-        // Botão Copiar CSV (funciona sem permissão de admin)
+        // Botão Copiar CSV
         const localBtn = document.createElement("button");
         localBtn.className = "fsem-btn";
         localBtn.textContent = "📋 Copiar CSV";
@@ -261,6 +363,75 @@ export class Visual implements IVisual {
         this.scrollWrap = document.createElement("div");
         this.scrollWrap.className = "fsem-scroll";
         this.root.appendChild(this.scrollWrap);
+
+        // Modal overlay
+        this.overlay = document.createElement("div");
+        this.overlay.className = "fsem-overlay";
+        this.overlay.addEventListener("click", () => this.closeModal());
+        this.root.appendChild(this.overlay);
+
+        // Modal box
+        this.modal = document.createElement("div");
+        this.modal.className = "fsem-modal";
+
+        const modalHeader = document.createElement("div");
+        modalHeader.className = "fsem-modal-header";
+
+        this.modalTitle = document.createElement("span");
+        this.modalTitle.className = "fsem-modal-title";
+        modalHeader.appendChild(this.modalTitle);
+
+        const closeBtn = document.createElement("button");
+        closeBtn.className = "fsem-modal-close";
+        closeBtn.textContent = "✕";
+        closeBtn.addEventListener("click", () => this.closeModal());
+        modalHeader.appendChild(closeBtn);
+
+        this.modal.appendChild(modalHeader);
+
+        this.modalBody = document.createElement("div");
+        this.modal.appendChild(this.modalBody);
+
+        this.root.appendChild(this.modal);
+
+        // Fecha com ESC
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "Escape") this.closeModal();
+        });
+    }
+
+    private openModal(title: string, detailRows: DetailRow[], detailCols: DataViewMetadataColumn[]): void {
+        this.modalTitle.textContent = title;
+
+        if (detailRows.length === 0) {
+            this.modalBody.innerHTML = `<p style="color:#aaa;text-align:center;padding:20px;">Sem registros de detalhe para este período.</p>`;
+        } else {
+            const parts: string[] = [];
+            parts.push(`<table class="fsem-modal-table"><thead><tr>`);
+            detailCols.forEach(c => {
+                parts.push(`<th>${escapeHtml(c.displayName)}</th>`);
+            });
+            parts.push(`</tr></thead><tbody>`);
+
+            detailRows.forEach(dr => {
+                parts.push(`<tr>`);
+                detailCols.forEach(c => {
+                    parts.push(`<td>${escapeHtml(dr.values.get(c.index!))}</td>`);
+                });
+                parts.push(`</tr>`);
+            });
+
+            parts.push(`</tbody></table>`);
+            this.modalBody.innerHTML = parts.join("");
+        }
+
+        this.overlay.style.display = "block";
+        this.modal.style.display = "block";
+    }
+
+    private closeModal(): void {
+        this.overlay.style.display = "none";
+        this.modal.style.display = "none";
     }
 
     public update(options: VisualUpdateOptions): void {
@@ -300,12 +471,14 @@ export class Visual implements IVisual {
         const weekValueCols: DataViewMetadataColumn[] = [];
         const complianceCols: DataViewMetadataColumn[] = [];
         const infoCols: DataViewMetadataColumn[] = [];
+        const detailCols: DataViewMetadataColumn[] = [];
 
         cols.forEach(c => {
             if (c.roles?.["weekKey"]) weekKeyCols.push(c);
             else if (c.roles?.["weekValue"]) weekValueCols.push(c);
             else if (c.roles?.["compliance"]) complianceCols.push(c);
-            else infoCols.push(c);
+            else if (c.roles?.["detail"]) detailCols.push(c);
+            else if (c.roles?.["info"]) infoCols.push(c);
         });
 
         const weekKeyIdx = weekKeyCols[0]?.index;
@@ -315,8 +488,7 @@ export class Visual implements IVisual {
         if (weekKeyIdx === undefined || weekValueIdx === undefined) {
             this.scrollWrap.innerHTML = `<div class="fsem-empty">
                 Configure os campos:<br>
-                <strong>Chave da Semana</strong> (coluna "Data Filtro") e
-                <strong>Valor da Semana</strong> (dias trabalhados).
+                <strong>Chave da Semana</strong> e <strong>Valor da Semana</strong>.
             </div>`;
             return;
         }
@@ -337,7 +509,8 @@ export class Visual implements IVisual {
                 pivotMap.set(infoKey, {
                     info: infoMap,
                     weekValues: new Map(),
-                    complianceValues: new Map()
+                    complianceValues: new Map(),
+                    details: new Map()
                 });
             }
 
@@ -349,8 +522,16 @@ export class Visual implements IVisual {
                 pivotRow.weekValues.set(semLabel, numVal);
 
                 if (complianceIdx !== undefined) {
-                    const status = String(row[complianceIdx] ?? "");
-                    pivotRow.complianceValues.set(semLabel, status);
+                    pivotRow.complianceValues.set(semLabel, String(row[complianceIdx] ?? ""));
+                }
+
+                // Coleta detalhe se houver colunas de detail
+                if (detailCols.length > 0) {
+                    const detailMap = new Map<number, unknown>();
+                    detailCols.forEach(dc => detailMap.set(dc.index!, row[dc.index!]));
+                    const existing = pivotRow.details.get(semLabel) ?? [];
+                    existing.push({ values: detailMap });
+                    pivotRow.details.set(semLabel, existing);
                 }
             }
         });
@@ -419,15 +600,17 @@ export class Visual implements IVisual {
         });
         parts.push(`</tr></thead><tbody>`);
 
+        // ── Corpo ────────────────────────────────────────────────────
         if (pivotRows.length === 0) {
             parts.push(`<tr><td colspan="${totalCols}" class="fsem-empty">Sem registros para o período selecionado.</td></tr>`);
         } else {
-            pivotRows.forEach(pr => {
+            pivotRows.forEach((pr, rowIdx) => {
                 parts.push(`<tr>`);
 
-                sortedSemanas.forEach(label => {
+                sortedSemanas.forEach((label, colIdx) => {
                     const val = pr.weekValues.get(label);
                     const hasData = val !== null && val !== undefined && !isNaN(val as number) && (val as number) > 0;
+                    const hasDetail = detailCols.length > 0 && hasData;
 
                     let cssClass = "";
                     if (hasData) {
@@ -439,8 +622,13 @@ export class Visual implements IVisual {
                         }
                     }
 
+                    const clickable = hasDetail ? " clickable" : "";
+                    const dataAttr = hasDetail
+                        ? ` data-row="${rowIdx}" data-col="${colIdx}"`
+                        : "";
+
                     const display = hasData ? escapeHtml(val) : "";
-                    parts.push(`<td class="fsem-td-semana ${cssClass}">${display}</td>`);
+                    parts.push(`<td class="fsem-td-semana${cssClass ? " " + cssClass : ""}${clickable}"${dataAttr}>${display}</td>`);
                 });
 
                 infoCols.forEach(ic => {
@@ -453,6 +641,34 @@ export class Visual implements IVisual {
 
         parts.push(`</tbody></table>`);
         this.scrollWrap.innerHTML = parts.join("");
+
+        // ── Event listener para popup ────────────────────────────────
+        if (detailCols.length > 0) {
+            this.scrollWrap.addEventListener("click", (e) => {
+                const td = (e.target as HTMLElement).closest("td[data-row]") as HTMLElement;
+                if (!td) return;
+
+                const rowIdx = parseInt(td.getAttribute("data-row") ?? "-1", 10);
+                const colIdx = parseInt(td.getAttribute("data-col") ?? "-1", 10);
+
+                if (rowIdx < 0 || colIdx < 0) return;
+
+                const pr = pivotRows[rowIdx];
+                const semLabel = sortedSemanas[colIdx];
+                const details = pr.details.get(semLabel) ?? [];
+
+                const nomePessoa = infoCols.length > 0
+                    ? String(pr.info.get(infoCols[0].index!) ?? "")
+                    : "";
+                const { num } = parseSemanaHeader(semLabel);
+
+                this.openModal(
+                    `${nomePessoa} — Semana ${num}`,
+                    details,
+                    detailCols
+                );
+            });
+        }
 
         // ── Prepara dados para CSV ───────────────────────────────────
         const sortedPivotRows = [...pivotRows].sort((a, b) => {
@@ -487,52 +703,11 @@ export class Visual implements IVisual {
 
     // ── Exportar CSV (bloqueado por permissão de admin) ───────────────
     private exportCSV(): void {
-         if (this.exportHeaders.length === 0) return;
-
-         const escape = (v: string) => `"${v.replace(/"/g, '""')}"`;
-         const lines: string[] = [];
-
-         lines.push(this.exportHeaders.map(escape).join(";"));
-         this.exportRows.forEach(row => lines.push(row.map(escape).join(";")));
-
-         const bom = "\uFEFF";
-         const content = bom + lines.join("\n");
-
-         try {
-             const downloadService = (this.host as any).downloadService;
-             if (downloadService?.exportVisualsContent) {
-                 downloadService.exportVisualsContent(
-                     content,
-                     `Frequencia_Semanal_${Date.now()}.csv`,
-                     "text/csv",
-                     "csv"
-                 );
-                 return;
-             }
-         } catch (e) { /* fallback abaixo */ }
-
-         try {
-             const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
-             const url = URL.createObjectURL(blob);
-             const a = document.createElement("a");
-             a.href = url;
-             a.download = `Frequencia_Semanal_${Date.now()}.csv`;
-             document.body.appendChild(a);
-             a.click();
-             document.body.removeChild(a);
-             URL.revokeObjectURL(url);
-         } catch (e) {
-             const encoded = encodeURIComponent(content);
-             const a = document.createElement("a");
-             a.href = `data:text/csv;charset=utf-8,${encoded}`;
-             a.download = `Frequencia_Semanal_${Date.now()}.csv`;
-             document.body.appendChild(a);
-             a.click();
-             document.body.removeChild(a);
-         }
+        // if (this.exportHeaders.length === 0) return;
+        // ... comentado até permissão ser liberada
     }
 
-    // ── Copiar CSV para clipboard (sem permissão de admin) ────────────
+    // ── Copiar CSV para clipboard ─────────────────────────────────────
     private exportLocal(): void {
         if (this.exportHeaders.length === 0) return;
 
